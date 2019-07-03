@@ -1,0 +1,68 @@
+on open Dropped_Files
+	
+	-- Set the ffmpeg encoder variables
+	
+	set fileCount to (count of Dropped_Files) as string
+	set text item delimiters to {"."}
+	set ffmpeg to "ffmpeg"
+	set frame_Rate to ""
+	--	set MOV_encoder_Settings to " -bt 4M -vcodec libx264 -pix_fmt yuvj420p  -f mp4 "
+	set MPG_encoder_Settings to " -bt 4M -vcodec mpeg1video -pix_fmt yuv422p "
+	set HD1_MOV_Size to " -vf scale=1280:720:0:0 -pix_fmt yuv420p -crf 20 -f mp4 " -- & MOV_encoder_Settings
+	set HD_MPG_Size to " -s 1280x720 -pix_fmt yuv420p -b:v 8500k -minrate 8500k -maxrate 10500k -bufsize 25000k" & MPG_encoder_Settings
+	
+	-- Create the Upload folder and set it as the ffmpeg destination
+	tell application "Finder"
+		set theFile to item 1 of Dropped_Files as alias
+		set renderFolder to folder of theFile as alias
+		set thePath to folder of renderFolder as alias
+		
+		try
+			
+			set theFolder to make new folder at thePath with properties {name:"Uploads"}
+			
+		on error errText number errNum
+			
+			if errNum is equal to -48 then
+				
+				set theFolder to (thePath as text) & "Uploads" as string
+				set theFolder to theFolder as alias
+				
+			end if
+			
+		end try
+		
+	end tell
+	
+	-- Build the Output variables
+	
+	repeat with i from 1 to fileCount
+		tell application "Finder"
+			tell window 1
+				set input to item i of Dropped_Files as alias
+			end tell
+			set theName to name of input
+			set fileLocation to the folder of theFolder as alias
+			set filePath to (quoted form of (POSIX path of fileLocation)) as text
+			set encodePath to theFolder as alias
+			set newPath to (quoted form of (POSIX path of encodePath)) as text
+			set newName to text item 1 of theName
+			set baseName to (text 1 thru -4 of newName)
+			set myFormat to text -3 thru -1 of newName
+			set HD_Input to filePath & "Renders/" & baseName & "_HD.mov"
+			set hd1_mov_Output to newPath & baseName & "_HD_720p_mov.mov"
+			set hd_mpg_Output to newPath & baseName & "_HD_720p_mpg.mpg"
+			
+		end tell
+		
+		-- HD Encode
+		tell application "Terminal"
+			activate
+			do script (ffmpeg & " -y -i " & HD_Input & HD1_MOV_Size & hd1_mov_Output & " " & HD_MPG_Size & hd_mpg_Output)
+			
+		end tell
+		delay 0.2
+		
+	end repeat
+	
+end open
