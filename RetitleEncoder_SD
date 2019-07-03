@@ -1,0 +1,70 @@
+on open Dropped_Files
+	
+	-- Set the ffmpeg encoder variables
+	
+	set fileCount to (count of Dropped_Files) as string
+	set text item delimiters to {"."}
+	set ffmpeg to (quoted form of ("ffmpeg"))
+	set frame_Rate to ""
+	set MOV_encoder_Settings to " -bt 4M -c:v libx264 -pix_fmt yuv420p  -f mp4 "
+	set MPG_encoder_Settings to " -bt 4M -c:v mpeg1video -pix_fmt yuv420p "
+	set SD_MOV_Size to " -vf scale=640:480:0:0 -pix_fmt yuv420p -crf 24 -profile baseline -f mp4 " -- & MOV_encoder_Settings
+	set SD_MPG_Size to " -s 640x480 -pix_fmt yuv420p -b:v 4500k -minrate 4500k -maxrate 4500k -bufsize 4500k" & MPG_encoder_Settings
+	
+	-- Create the Upload folder and set it as the ffmpeg destination
+	tell application "Finder"
+		set theFile to item 1 of Dropped_Files as alias
+		set renderFolder to folder of theFile as alias
+		set thePath to folder of renderFolder as alias
+		
+		
+		try
+			
+			set theFolder to make new folder at thePath with properties {name:"Uploads"}
+			
+		on error errText number errNum
+			
+			if errNum is equal to -48 then
+				
+				set theFolder to (thePath as text) & "Uploads" as string
+				set theFolder to theFolder as alias
+				
+			end if
+			
+		end try
+		
+	end tell
+	
+	
+	-- Build the Output variables
+	
+	repeat with i from 1 to fileCount
+		tell application "Finder"
+			tell window 1
+				set input to item i of Dropped_Files as alias
+			end tell
+			set theName to name of input
+			set fileLocation to the folder of theFolder as alias
+			set filePath to (quoted form of (POSIX path of fileLocation)) as text
+			set encodePath to theFolder as alias
+			set newPath to (quoted form of (POSIX path of encodePath)) as text
+			set newName to text item 1 of theName
+			set baseName to (quoted form of (text 1 thru -4 of newName))
+			set myFormat to text -3 thru -1 of newName
+			set SD_Input to filePath & "Renders/" & baseName & "_SD.mov"
+			set sd_mov_Output to newPath & baseName & "_SD_mov.mov"
+			set sd_mpg_Output to newPath & baseName & "_SD_mpg.mpg"
+			
+		end tell
+		
+		-- SD Encode with ffmpeg
+		tell application "Terminal"
+			activate
+			do script (ffmpeg & " -y -i " & SD_Input & SD_MOV_Size & sd_mov_Output & " " & SD_MPG_Size & sd_mpg_Output)
+		end tell
+		delay 0.2
+		
+	end repeat
+	
+	
+end open
