@@ -1,0 +1,19 @@
+on open Dropped_Files
+	
+	tell application "Finder"
+		set theItems to Dropped_Files
+		set fileName to name of item 1 of theItems
+		set AppleScript's text item delimiters to "."
+		set baseName to text item 1 of fileName as text
+		
+		set thePath to first item of theItems
+		set parentFolder to the container of thePath
+		set thefoldername to baseName
+		set theFolder to (make new folder at parentFolder with properties {name:thefoldername})
+		
+		repeat with x in theItems
+			move x to theFolder
+		end repeat
+	end tell
+	
+end open
