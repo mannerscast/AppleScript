@@ -1,0 +1,245 @@
+on open Dropped_Files
+	
+(*
+ This is the code for creating the content necessary to upload to IG 7.
+		1) Opens Movie for Thumbnail frame selection
+		2) Creates PNG of selected frame for each version of the movie and then converts to JPG to preserve color information
+		3) Keeps or Deletes the SD still based on user input
+		4) Creates Countdown folder as well as encoding countdowns to h264 to reduce file size for upload
+*)
+  
+	--try
+	
+	set fileCount to (count of Dropped_Files) as string
+	set text item delimiters to {"."}
+	set ffmpeg to ("/usr/local/bin/ffmpeg")
+	set Title_Confirm to "no"
+	set Loop_Confirm to "no"
+	set SD_Delete to "no"
+	
+	-- FFMPEG VARIABLES
+	
+	set pixFmt to " -pix_fmt yuv420p "
+	set videoCodec to "-c:v libx264 "
+	set HD_bitRate to "-b:v 18000k "
+	set SD_bitRate to "-b:v 12000k "
+	
+	-- STILLS
+	
+	set Original_HDThumb_Settings to " -s 1920x1080 -q:v 1 -vframes 1 -tune animation "
+	set Original_SDThumb_Settings to " -s 1440x1080 -q:v 1 -vframes 1 -tune animation "
+	set Original_UW_HD_Thumb_Settings to " -s 3840x720 -q:v 1 -vframes 1 -tune animation "
+	set Original_UW_SD_Thumb_Settings to " -s 1920x480 -q:v 1 -vframes 1 -tune animation "
+	
+	
+	-- Create the Upload folder and set it as the ffmpeg destination
+	
+	tell application "Finder"
+		set theFile to item 1 of Dropped_Files as alias
+		--set theFile to (selection as alias)
+		set renderFolder to folder of theFile
+		set thePath to folder of renderFolder
+		
+		--		display dialog (POSIX path of thePath) as text
+		
+		try
+			
+			set theCountdownsFolder to make new folder at thePath with properties {name:"Countdowns"}
+			
+		on error errText number errNum
+			
+			if errNum is equal to -48 then
+				
+				set theCountdownsFolder to (thePath as text) & "Countdowns" as string
+				set theCountdownsFolder to theCountdownsFolder as alias
+				
+			end if
+		end try
+	end tell
+	
+	
+	-- Pick the thumbnail
+	
+	tell application "QuickTime Player"
+		open theFile
+		activate
+	end tell
+	
+	set SD_Question to display dialog "Select a frame in QuickTime Player. Delete SD Stills?" buttons {"Yes", "No"} default button 2 with icon 0
+	set SD_Delete to button returned of SD_Question
+	
+	tell application "QuickTime Player"
+		activate
+		set thumbnailTime to current time of document 1
+		quit
+	end tell
+	
+	repeat with i from 1 to fileCount
+		
+		tell application "Finder"
+			
+			tell window 1
+				set input to item i of Dropped_Files as alias
+			end tell
+			set theName to name of input
+			
+			--SET FOLDER PATHS
+			set fileLocation to the folder of renderFolder as alias
+			set encodePath to POSIX path of fileLocation
+			set countdowns_EncodePath to theCountdownsFolder as alias
+			--set mainFolder to (POSIX path of renderFolder) as alias
+			
+			
+			
+			--SET FILE BASENAME
+			set newName to text item 1 of theName
+			set baseName to text 1 thru -4 of newName
+			set myFormat to text -3 thru -1 of newName
+			
+			
+			--SET INPUT FILES
+			set HD_Input to quoted form of (encodePath & "Renders/" & baseName & "_HD.mov")
+			set SD_Input to quoted form of (encodePath & "Renders/" & baseName & "_SD.mov")
+			set CD_HD_Input to quoted form of (encodePath & "Renders/" & baseName & "_HD.mov")
+			set CD_SD_Input to quoted form of (encodePath & "Renders/" & baseName & "_SD.mov")
+			set UW_HD_Input to quoted form of (encodePath & "Renders/" & baseName & "_UW_HD.mov")
+			set UW_HD_File to (encodePath & "Renders/" & baseName & "_UW_HD.mov")
+			set UW_SD_Input to quoted form of (encodePath & "Renders/" & baseName & "_UW_SD.mov")
+			
+			
+			--SET OUTPUT FILENAMES
+			set Original_HD_Thumb to quoted form of (encodePath & "Renders/" & baseName & "_HD.jpg")
+			set Original_HD_Thumb_PNG to quoted form of (encodePath & "Renders/" & baseName & "_HD.png")
+			set Original_SD_Thumb to quoted form of (encodePath & "Renders/" & baseName & "_SD.jpg")
+			set Original_SD_Thumb_PNG to quoted form of (encodePath & "Renders/" & baseName & "_SD.png")
+			
+			set CD_HD_Thumb to quoted form of (encodePath & "Countdowns/" & baseName & "_HD.jpg")
+			set CD_HD_Thumb_PNG to quoted form of (encodePath & "Countdowns/" & baseName & "_HD.png")
+			set CD_HD_Encode to quoted form of (encodePath & "Countdowns/" & baseName & "_HD.mov")
+			set CD_SD_Encode to quoted form of (encodePath & "Countdowns/" & baseName & "_SD.mov")
+			
+			set Original_UW_SD_Thumb to quoted form of (encodePath & "Renders/" & baseName & "_UW_SD.jpg")
+			set Original_UW_SD_Thumb_PNG to quoted form of (encodePath & "Renders/" & baseName & "_UW_SD.png")
+			set Original_UW_HD_Thumb to quoted form of (encodePath & "Renders/" & baseName & "_UW_HD.jpg")
+			set Original_UW_HD_Thumb_PNG to quoted form of (encodePath & "Renders/" & baseName & "_UW_HD.png")
+			
+			
+			--CHECK IF THE FILE IS A COUNTDOWN
+			set AppleScript's AppleScript's text item delimiters to {"_"}
+			
+			set theFile to item i of Dropped_Files as text
+			set numItems to the number of text items in theFile
+			set CD_Check to ""
+			set CD_Confirm to "no"
+			repeat with j from 1 to numItems
+				if CD_Check = "Countdown" then
+					set CD_Confirm to "yes"
+				end if
+				if CD_Check = "Countdown" then exit repeat
+				set CD_Check to text item j of theFile
+			end repeat
+			if CD_Check = "Countdown" then exit repeat
+			
+			--CHECK IF THE FILE IS A TITLE
+			set AppleScript's AppleScript's text item delimiters to {"_"}
+			
+			set theFile to item i of Dropped_Files as text
+			set numItems to the number of text items in theFile
+			set Title_Check to ""
+			repeat with j from 1 to numItems
+				if Title_Check = "Title" then
+					set Title_Confirm to "yes"
+				end if
+				set Title_Check to text item j of theFile
+			end repeat
+			
+			--CHECK IF THE FILE IS A LOOP
+			set AppleScript's AppleScript's text item delimiters to {"_"}
+			
+			set theFile to item i of Dropped_Files as text
+			set numItems to the number of text items in theFile
+			set Loop_Check to ""
+			repeat with j from 1 to numItems
+				if Loop_Check = "Loop" then
+					set Loop_Confirm to "yes"
+				end if
+				set Loop_Check to text item j of theFile
+			end repeat
+			
+			--CHECK FOR ULTRAWIDES
+			set UW_Check to POSIX path of UW_HD_File
+			set UW_File to UW_Check -- as text
+			
+			set Run_UW to "no"
+			
+			
+			
+			if exists UW_File as POSIX file then
+				set Run_UW to "yes"
+			end if
+			
+			--display dialog Run_UW
+			
+		end tell
+		
+		if Run_UW is equal to "yes" then
+			
+			tell application "Terminal"
+				
+				do shell script ffmpeg & " -y " & " -ss " & thumbnailTime & " -i " & HD_Input & Original_HDThumb_Settings & Original_HD_Thumb_PNG & " && sips -s format JPEG " & Original_HD_Thumb_PNG & " --out " & Original_HD_Thumb & " && rm -R " & Original_HD_Thumb_PNG & " &&" & ffmpeg & " -y " & " -ss " & thumbnailTime & " -i " & SD_Input & Original_SDThumb_Settings & Original_SD_Thumb_PNG & " && sips -s format JPEG " & Original_SD_Thumb_PNG & " --out " & Original_SD_Thumb & " && rm -R " & Original_SD_Thumb_PNG
+				
+				do shell script ffmpeg & " -y " & " -ss " & thumbnailTime & " -i " & UW_HD_Input & Original_UW_HD_Thumb_Settings & Original_UW_HD_Thumb_PNG & " && sips -s format JPEG " & Original_UW_HD_Thumb_PNG & " --out " & Original_UW_HD_Thumb & " && rm -R " & Original_UW_HD_Thumb_PNG & " &&" & ffmpeg & " -y " & " -ss " & thumbnailTime & " -i " & UW_SD_Input & Original_UW_SD_Thumb_Settings & Original_UW_SD_Thumb_PNG & " && sips -s format JPEG " & Original_UW_SD_Thumb_PNG & " --out " & Original_UW_SD_Thumb & " && rm -R " & Original_UW_SD_Thumb_PNG
+				
+				
+			end tell
+			
+		end if
+		
+		if Run_UW is equal to "no" then
+			
+			tell application "Terminal"
+				
+				do shell script ffmpeg & " -y " & " -ss " & thumbnailTime & " -i " & HD_Input & Original_HDThumb_Settings & Original_HD_Thumb_PNG & " && sips -s format JPEG " & Original_HD_Thumb_PNG & " --out " & Original_HD_Thumb & " && rm -R " & Original_HD_Thumb_PNG & " &&" & ffmpeg & " -y " & " -ss " & thumbnailTime & " -i " & SD_Input & Original_SDThumb_Settings & Original_SD_Thumb_PNG & " && sips -s format JPEG " & Original_SD_Thumb_PNG & " --out " & Original_SD_Thumb & " && rm -R " & Original_SD_Thumb_PNG
+				
+			end tell
+			
+		end if
+		
+	end repeat
+	
+	if CD_Confirm is equal to "yes" then
+		
+		tell application "Terminal"
+			
+			do shell script ffmpeg & " -y " & " -ss " & thumbnailTime & " -i " & CD_HD_Input & Original_HDThumb_Settings & CD_HD_Thumb_PNG & " && sips -s format JPEG " & CD_HD_Thumb_PNG & " --out " & CD_HD_Thumb & " && rm -R " & CD_HD_Thumb_PNG
+			
+			activate
+			
+			do script (ffmpeg & " -y -i " & CD_HD_Input & pixFmt & videoCodec & HD_bitRate & CD_HD_Encode)
+			do script (ffmpeg & " -y -i " & CD_SD_Input & pixFmt & videoCodec & SD_bitRate & CD_SD_Encode)
+			
+		end tell
+		
+	end if
+	
+	--CLEAN UP TITLE AND LOOP THUMBS	
+	if Title_Confirm is equal to "yes" then
+		tell application "Terminal"
+			do shell script "rm -R " & Original_SD_Thumb
+		end tell
+	end if
+	
+	if Loop_Confirm is equal to "yes" then
+		tell application "Terminal"
+			do shell script "rm -R " & Original_SD_Thumb
+		end tell
+	end if
+	
+	if SD_Delete is equal to "Yes" then
+		tell application "Terminal"
+			delay 3
+			do shell script "rm -R " & Original_SD_Thumb
+		end tell
+	end if
+	
+end open
